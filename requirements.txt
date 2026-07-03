@@ -1,0 +1,11 @@
+numpy
+scipy
+scikit-image
+matplotlib
+imageio
+JPype1
+trimesh
+pyrender
+PyVirtualDisplay
+hydra-core
+omegaconf

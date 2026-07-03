@@ -1,0 +1,43 @@
+# V2 메인 Hydra config — 2-stage 실험 (retarget / fem)
+#
+# 실행:
+#   python main.py                       # stage=all
+#   python main.py stage=fem
+#   python main.py stage=fem activations.GGP=0.3 activations.HG=0.2
+#   python main.py artisynth.nramp=40 retarget.mm_per_px=1.2
+#   python main.py render.size=[512,512]
+#
+# 설정 그룹: configs/artisynth/*.yaml, configs/retarget/*.yaml
+
+defaults:
+  - artisynth: default
+  - retarget: default
+  - _self_
+
+# 실행 스테이지: retarget | fem | all
+stage: all
+
+# 경로 — 상대경로는 리포 루트(V2의 부모) 기준, 절대경로도 가능
+paths:
+  tongue_obj: tongue_model/tongue_rest_m.obj
+  mask_dir: datasets/GT_Segmentations/Subject3
+  rest_mask: ${paths.mask_dir}/mask_1.mat
+  # 단일 .mat 파일이면 1프레임 retarget, 폴더면 폴더 내 mask_*.mat 전체를 retarget
+  target_mask: ${paths.mask_dir}/mask_51.mat
+  out_dir: null            # null → modules.utils.OUT_DIR (_test_out)
+
+# vis() 카메라/크기 (해부학 좌표: +Z=위, -Y=우, -X=앞. right_degree=90=우측 sagittal)
+render:
+  upper_degree: 45
+  right_degree: 90
+  size: [640, 640]
+
+# (근육 활성값은 configs/artisynth/default.yaml 의 activations 로 이동)
+
+# Hydra 자체 동작: 작업 폴더 이동/출력 폴더 생성 안 함(경로는 코드가 절대경로로 처리)
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+  job:
+    chdir: false

@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+_test_out/
+main.log
+*.log
+.DS_Store

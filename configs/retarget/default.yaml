@@ -1,0 +1,21 @@
+# MRI mask → register → lift → retarget 파라미터
+# CLI 오버라이드: python main.py retarget.mm_per_px=1.2 retarget.retarget.nctrl=15
+
+mm_per_px: 1.164          # 이미지 픽셀 → mm (register/lift/retarget/contour 공통)
+# target_mask 가 폴더면 자동으로 전체 프레임을 retarget (단일 파일이면 1프레임)
+
+lift:                     # 2D contour → 대칭 3D dome lift
+  nz: 15
+  half_w: 30.0
+  edge_drop: 9.0
+  width_end: 0.35
+
+retarget:                 # RBF 기반 mesh 변형
+  nctrl: 13
+  rbf_len: 18.0
+  spatial_win: 3
+
+contour:                  # 2D 혀 마스크 → dorsal contour
+  n_markers: 25
+  clip_root: true
+  clip_drop_frac: 1.0
