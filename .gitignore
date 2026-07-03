@@ -26,6 +26,11 @@ output/
 *.obj
 retargeted_objs/
 
+# Downloaded dataset (keep download scripts)
+datasets/**
+!datasets/download.py
+!datasets/dataset_download.sh
+
 # Docker / local env
 .env
 data/
