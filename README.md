@@ -4,16 +4,22 @@ Two-stage pipeline for MRI tongue segmentation → 3D mesh retargeting (Stage 1)
 
 ## Dataset
 
-**The dataset is not included in this repository.**
+**The dataset is not included in this repository.** It is hosted separately on Hugging Face (gated — request access, then download after approval):
 
-You must provide your own data and point the config to it:
+**https://huggingface.co/datasets/SeunghoEum/mri-tongue-dataset**
 
-| Asset | Default path (relative to parent repo root) | Description |
-|-------|---------------------------------------------|-------------|
+```bash
+# After your access request is approved:
+hf download SeunghoEum/mri-tongue-dataset --local-dir ./data
+```
+
+| Asset | Path in the HF dataset | Description |
+|-------|------------------------|-------------|
 | Rest tongue mesh | `tongue_model/tongue_rest_m.obj` | 3D reference mesh for registration |
 | MRI masks | `datasets/GT_Segmentations/Subject3/mask_*.mat` | 2D segmentation masks (`.mat`) |
+| SSFP cine (optional) | `datasets/MRI_SSFP_10fps/Subject*/image_*.dcm` | Raw DICOM frames |
 
-When running from a standalone clone, use absolute paths or mount data under `/data` (see [Docker](#docker-recommended)).
+When running from a standalone clone, use absolute paths or mount the downloaded folder as `/data` (see [Docker](#docker-recommended)).
 
 Generated outputs (`_test_out/`, `*.obj`, `*.png`, `*.csv`, etc.) are also excluded via `.gitignore`.
 
