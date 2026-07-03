@@ -13,6 +13,26 @@ Two-stage pipeline for MRI tongue segmentation → 3D mesh retargeting (Stage 1)
 hf download SeunghoEum/mri-tongue-dataset --local-dir ./data
 ```
 
+Or use the bundled scripts (downloads into `datasets/` with the layout expected by the pipeline):
+
+```bash
+hf auth login   # once, after access is approved
+./datasets/dataset_download.sh
+# masks + mesh only (skip DICOM):
+./datasets/dataset_download.sh --skip-dicom
+```
+
+This creates:
+
+```
+datasets/
+  GT_Segmentations/Subject{1-5}/mask_*.mat
+  MRI_SSFP_10fps/Subject{1-5}/image_*.dcm
+  tongue_model/tongue_rest_m.obj
+```
+
+Then run with absolute paths (see output from `download.py`).
+
 | Asset | Path in the HF dataset | Description |
 |-------|------------------------|-------------|
 | Rest tongue mesh | `tongue_model/tongue_rest_m.obj` | 3D reference mesh for registration |
