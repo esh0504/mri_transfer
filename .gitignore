@@ -1,7 +1,31 @@
+# Python
 __pycache__/
 *.pyc
 *.pyo
-_test_out/
-main.log
+.pytest_cache/
+.mypy_cache/
+
+# Logs
 *.log
+
+# Pipeline output directory (default OUT_DIR)
+_test_out/
+output/
+
+# Generated artifacts (results & intermediates)
+*.png
+*.gif
+*.jpg
+*.jpeg
+*.tif
+*.tiff
+*.bmp
+*.npy
+*.npz
+*.csv
+*.obj
+retargeted_objs/
+
+# OS
 .DS_Store
+Thumbs.db
