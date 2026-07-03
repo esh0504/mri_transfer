@@ -1,51 +1,57 @@
 # mri_transfer Docker
 #
-# docker-compose.yml 만으로는 부족합니다. 함께 필요한 것:
-#   - Dockerfile (이미지 빌드)
-#   - docker-entrypoint.sh
-#   - requirements.txt
-#   - MRI/혀 메시 데이터 (/data 마운트, docker.env.example 참고)
-#
-# 최초 빌드 (ArtiSynth clone+compile, 수 분):
+# Build once:
 #   docker compose build
 #
-# 셸:
-#   docker compose run --rm shell
+# Persistent dev container (stop/start, keep your shell history & edits):
+#   docker compose up -d workspace
+#   docker compose exec workspace bash
+#   docker compose stop workspace
+#   docker compose start workspace
+#   docker compose down          # remove container (bind mounts stay on host)
 #
-# 파이프라인 (MRI 마스크 + tongue OBJ 가 /data 에 있어야 retarget 가능):
+# One-shot pipeline (optional):
 #   docker compose run --rm pipeline
-#   docker compose run --rm pipeline stage=fem
-#   docker compose run --rm pipeline stage=retarget artisynth.nramp=40
+#   docker compose run --rm -e PIPELINE_ARGS="stage=fem" pipeline
 #
-# 경로: 프로젝트 루트에 .env 생성 (docker.env.example 참고)
+# Inside the running workspace:
+#   ./datasets/dataset_download.sh
+#   xvfb-run -a python main.py stage=fem
+#
+# Paths: copy docker.env.example → .env
 
 x-common: &common
   build:
     context: .
     dockerfile: Dockerfile
   volumes:
-    - ${PROJECT_DIR:-.}:/app
-    - ${DATA_DIR:-./data}:/data:ro
+    - ${PROJECT_DIR:-.}:/workspace
+    - ${DATA_DIR:-./datasets}:/workspace/datasets:ro
   environment: &env
     ARTISYNTH_HOME: /opt/artisynth/artisynth_core
-    PYTHONPATH: /app
+    PYTHONPATH: /workspace
     JVM_XMX: ${JVM_XMX:-4g}
-    TONGUE_OBJ: ${TONGUE_OBJ:-/data/tongue_model/tongue_rest_m.obj}
-    MRI_MASK_DIR: ${MRI_MASK_DIR:-/data/datasets/GT_Segmentations/Subject3}
-    MRI_REST_MASK: ${MRI_REST_MASK:-/data/datasets/GT_Segmentations/Subject3/mask_1.mat}
-    MRI_TARGET_MASK: ${MRI_TARGET_MASK:-/data/datasets/GT_Segmentations/Subject3/mask_51.mat}
+    TONGUE_OBJ: ${TONGUE_OBJ:-/workspace/datasets/tongue_model/tongue_rest_m.obj}
+    MRI_MASK_DIR: ${MRI_MASK_DIR:-/workspace/datasets/GT_Segmentations/Subject3}
+    MRI_REST_MASK: ${MRI_REST_MASK:-/workspace/datasets/GT_Segmentations/Subject3/mask_1.mat}
+    MRI_TARGET_MASK: ${MRI_TARGET_MASK:-/workspace/datasets/GT_Segmentations/Subject3/mask_51.mat}
     PIPELINE_ARGS: ${PIPELINE_ARGS:-}
-  working_dir: /app
+  working_dir: /workspace
   stdin_open: true
   tty: true
 
 services:
-  shell:
+  # Long-lived container — use exec bash to work inside after stop/start.
+  workspace:
     <<: *common
-    command: ["bash"]
+    container_name: mri_transfer_workspace
+    command: ["sleep", "infinity"]
+    restart: unless-stopped
 
+  # Ephemeral run (same image, removed after exit).
   pipeline:
     <<: *common
+    profiles: ["run"]
     command:
       - bash
       - -lc

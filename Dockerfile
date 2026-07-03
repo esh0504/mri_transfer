@@ -1,9 +1,8 @@
 # mri_transfer — ArtiSynth + JPype + V2 Python pipeline (all-in-one)
 #
 #   docker compose build
-#   docker compose run --rm shell
-#   docker compose run --rm pipeline          # stage=all (needs /data mount)
-#   docker compose run --rm pipeline stage=fem # fem only (no MRI masks)
+#   docker compose up -d workspace
+#   docker compose exec workspace bash
 #
 FROM eclipse-temurin:21-jdk-jammy
 
@@ -34,13 +33,13 @@ COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
     && chmod +x /usr/local/bin/docker-entrypoint.sh
 
-ENV PYTHONPATH=/app \
+ENV PYTHONPATH=/workspace \
     MPLBACKEND=Agg \
     ARTISYNTH_HOME=${ARTISYNTH_HOME} \
     TONGUE_MODEL=artisynth.models.tongue3d.HexTongueDemo \
     JVM_XMX=4g \
     TONGUE_OBJ=${ARTISYNTH_HOME}/src/artisynth/models/tongue3d/geometry/tongue.obj
 
-WORKDIR /app
+WORKDIR /workspace
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["bash"]

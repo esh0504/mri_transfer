@@ -202,26 +202,38 @@ python main.py stage=all paths.mask_dir=/data/datasets/GT_Segmentations/Subject3
 
 ## Docker (recommended)
 
-Docker bundles JDK, ArtiSynth, JPype, and Python dependencies. **Data must still be mounted separately.**
+Docker bundles JDK, ArtiSynth, JPype, and Python dependencies.
 
 ```bash
-cp docker.env.example .env   # set DATA_DIR to your local dataset root
-
-# Expected layout under DATA_DIR:
-#   tongue_model/tongue_rest_m.obj
-#   datasets/GT_Segmentations/Subject3/mask_*.mat
+cp docker.env.example .env   # optional path overrides
 
 docker compose build
-docker compose run --rm shell
+docker compose up -d workspace    # persistent container
+docker compose exec workspace bash
 
-# Stage 1 + 2 (default paths under /data)
-docker compose run --rm pipeline
+# stop / resume (container filesystem state is kept until removed)
+docker compose stop workspace
+docker compose start workspace
+docker compose exec workspace bash
 
-# Stage 2 only
-docker compose run --rm -e PIPELINE_ARGS="stage=fem" pipeline
+# remove container (host ./datasets and repo bind mount unchanged)
+docker compose down
+```
 
-# Stage 1 only
-docker compose run --rm -e PIPELINE_ARGS="stage=retarget" pipeline
+Inside the container (`WORKDIR` is `/workspace`):
+
+```bash
+./datasets/dataset_download.sh
+xvfb-run -a python main.py stage=fem
+xvfb-run -a python main.py stage=retarget \
+  paths.tongue_obj=/workspace/datasets/tongue_model/tongue_rest_m.obj \
+  paths.mask_dir=/workspace/datasets/GT_Segmentations/Subject3
+```
+
+One-shot pipeline (optional, creates a temporary container):
+
+```bash
+docker compose --profile run run --rm -e PIPELINE_ARGS="stage=fem" pipeline
 ```
 
 See `docker.env.example` for path overrides (`TONGUE_OBJ`, `MRI_MASK_DIR`, etc.).
