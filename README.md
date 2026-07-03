@@ -204,19 +204,27 @@ python main.py stage=all paths.mask_dir=/data/datasets/GT_Segmentations/Subject3
 
 Docker bundles JDK, ArtiSynth, JPype, and Python dependencies.
 
+### Names
+
+| Item | Value | Where set |
+|------|-------|-----------|
+| Compose project (group) | `mri_transfer` | `docker-compose.yml` → `name:` + `.env` → `COMPOSE_PROJECT_NAME` |
+| Image | `mri_transfer/workspace:latest` | `docker-compose.yml` → `image:` |
+| Persistent container | `mri_transfer_workspace` | `docker-compose.yml` → `container_name:` |
+| Service (for `exec`) | `workspace` | `docker-compose.yml` → `services:` |
+
 ```bash
 cp docker.env.example .env   # optional path overrides
 
 docker compose build
-docker compose up -d workspace    # persistent container
+docker compose up -d workspace    # creates container mri_transfer_workspace
 docker compose exec workspace bash
 
-# stop / resume (container filesystem state is kept until removed)
+# stop / resume
 docker compose stop workspace
 docker compose start workspace
 docker compose exec workspace bash
 
-# remove container (host ./datasets and repo bind mount unchanged)
 docker compose down
 ```
 

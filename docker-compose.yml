@@ -1,26 +1,27 @@
 # mri_transfer Docker
 #
+# Naming (see docker.env.example):
+#   project   mri_transfer          (Compose group / Docker Desktop folder)
+#   image     mri_transfer/workspace:latest
+#   container mri_transfer_workspace  (persistent dev container)
+#
 # Build once:
 #   docker compose build
 #
-# Persistent dev container (stop/start, keep your shell history & edits):
+# Persistent dev container:
 #   docker compose up -d workspace
 #   docker compose exec workspace bash
 #   docker compose stop workspace
 #   docker compose start workspace
-#   docker compose down          # remove container (bind mounts stay on host)
+#   docker compose down
 #
-# One-shot pipeline (optional):
-#   docker compose run --rm pipeline
-#   docker compose run --rm -e PIPELINE_ARGS="stage=fem" pipeline
-#
-# Inside the running workspace:
-#   ./datasets/dataset_download.sh
-#   xvfb-run -a python main.py stage=fem
-#
-# Paths: copy docker.env.example → .env
+# One-shot pipeline:
+#   docker compose --profile run run --rm -e PIPELINE_ARGS="stage=fem" pipeline
+
+name: mri_transfer
 
 x-common: &common
+  image: mri_transfer/workspace:latest
   build:
     context: .
     dockerfile: Dockerfile
@@ -41,14 +42,12 @@ x-common: &common
   tty: true
 
 services:
-  # Long-lived container — use exec bash to work inside after stop/start.
   workspace:
     <<: *common
     container_name: mri_transfer_workspace
     command: ["sleep", "infinity"]
     restart: unless-stopped
 
-  # Ephemeral run (same image, removed after exit).
   pipeline:
     <<: *common
     profiles: ["run"]
