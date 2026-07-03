@@ -1,9 +1,11 @@
-# mri_transfer Docker
+# mri_transfer Docker (Compose project group: xai)
 #
 # Naming (see docker.env.example):
-#   project   mri_transfer          (Compose group / Docker Desktop folder)
-#   image     mri_transfer/workspace:latest
-#   container mri_transfer_workspace  (persistent dev container)
+#   project   xai                   → Docker Desktop group, network xai_default
+#   image     xai/mri_transfer:latest
+#   container xai_mri_transfer        (persistent dev container)
+#
+# IMPORTANT: run compose from THIS repo root (mri_transfer clone), not Tongue_Inverse/.
 #
 # Build once:
 #   docker compose build
@@ -18,10 +20,10 @@
 # One-shot pipeline:
 #   docker compose --profile run run --rm -e PIPELINE_ARGS="stage=fem" pipeline
 
-name: mri_transfer
+name: xai
 
 x-common: &common
-  image: mri_transfer/workspace:latest
+  image: xai/mri_transfer:latest
   build:
     context: .
     dockerfile: Dockerfile
@@ -44,7 +46,7 @@ x-common: &common
 services:
   workspace:
     <<: *common
-    container_name: mri_transfer_workspace
+    container_name: xai_mri_transfer
     command: ["sleep", "infinity"]
     restart: unless-stopped
 

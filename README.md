@@ -208,16 +208,18 @@ Docker bundles JDK, ArtiSynth, JPype, and Python dependencies.
 
 | Item | Value | Where set |
 |------|-------|-----------|
-| Compose project (group) | `mri_transfer` | `docker-compose.yml` → `name:` + `.env` → `COMPOSE_PROJECT_NAME` |
-| Image | `mri_transfer/workspace:latest` | `docker-compose.yml` → `image:` |
-| Persistent container | `mri_transfer_workspace` | `docker-compose.yml` → `container_name:` |
+| Compose project (group) | **`xai`** | `docker-compose.yml` → `name:` + `.env` → `COMPOSE_PROJECT_NAME` |
+| Image | `xai/mri_transfer:latest` | `docker-compose.yml` → `image:` |
+| Persistent container | `xai_mri_transfer` | `docker-compose.yml` → `container_name:` |
 | Service (for `exec`) | `workspace` | `docker-compose.yml` → `services:` |
 
+Run `docker compose` from the **mri_transfer repo root**. If you run from `Tongue_Inverse/`, Docker uses that folder’s compose file and groups containers under **`tongue_inverse`** instead.
+
 ```bash
-cp docker.env.example .env   # optional path overrides
+cp docker.env.example .env   # sets COMPOSE_PROJECT_NAME=xai
 
 docker compose build
-docker compose up -d workspace    # creates container mri_transfer_workspace
+docker compose up -d workspace    # → project xai, container xai_mri_transfer
 docker compose exec workspace bash
 
 # stop / resume
