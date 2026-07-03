@@ -26,6 +26,10 @@ output/
 *.obj
 retargeted_objs/
 
+# Docker / local env
+.env
+data/
+
 # OS
 .DS_Store
 Thumbs.db
