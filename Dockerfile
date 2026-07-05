@@ -12,12 +12,21 @@ ARG ARTISYNTH_HOME=/opt/artisynth/artisynth_core
 ARG ARTISYNTH_MODELS=/opt/artisynth/artisynth_models
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3 python3-pip python-is-python3 git make libgomp1 ca-certificates \
+        python3 python3-pip python-is-python3 git make libgomp1 ca-certificates curl \
         xvfb libxrender1 libgl1 libglib2.0-0 libsm6 libxext6 libosmesa6 \
+    && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        > /etc/apt/sources.list.d/github-cli.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /tmp/requirements.txt
-RUN pip3 install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt
+RUN pip3 install --no-cache-dir -r /tmp/requirements.txt \
+    && rm /tmp/requirements.txt \
+    && hf --help >/dev/null 2>&1 || huggingface-cli --help >/dev/null
 
 RUN git clone --depth 1 "${ARTISYNTH_GIT}" "${ARTISYNTH_HOME}" && \
     git clone --depth 1 "${ARTISYNTH_MODELS_GIT}" "${ARTISYNTH_MODELS}" && \

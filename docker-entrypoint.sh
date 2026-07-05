@@ -37,6 +37,11 @@ _setup_tokens() {
     fi
 
     if [ -n "${GIT_TOKEN:-}" ]; then
+        if command -v gh >/dev/null 2>&1; then
+            printf '%s' "$GIT_TOKEN" | gh auth login --with-token >/dev/null 2>&1 \
+                && echo "[setup] GitHub: logged in (gh CLI)" \
+                || echo "[setup] GitHub: gh auth failed (falling back to git credentials)"
+        fi
         git config --global credential.helper store
         printf 'https://oauth2:%s@github.com\n' "$GIT_TOKEN" > "${HOME}/.git-credentials"
         chmod 600 "${HOME}/.git-credentials"
