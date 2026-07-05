@@ -37,16 +37,27 @@ _setup_tokens() {
     fi
 
     if [ -n "${GIT_TOKEN:-}" ]; then
+        # 이전 실행에서 남은 url.insteadOf(토큰 URL rewrite) 제거
+        while IFS= read -r key; do
+            [ -n "$key" ] && git config --global --unset "$key" 2>/dev/null || true
+        done < <(git config --global --get-regexp '^url\..*\.insteadof$' 2>/dev/null | awk '{print $1}' || true)
+
         if command -v gh >/dev/null 2>&1; then
-            printf '%s' "$GIT_TOKEN" | gh auth login --with-token >/dev/null 2>&1 \
-                && echo "[setup] GitHub: logged in (gh CLI)" \
-                || echo "[setup] GitHub: gh auth failed (falling back to git credentials)"
+            if printf '%s' "$GIT_TOKEN" | gh auth login --with-token >/dev/null 2>&1; then
+                gh auth setup-git >/dev/null 2>&1 || true
+                echo "[setup] GitHub: logged in (gh CLI)"
+            else
+                echo "[setup] GitHub: gh auth failed (falling back to git credentials)"
+                git config --global credential.helper store
+                printf 'https://oauth2:%s@github.com\n' "$GIT_TOKEN" > "${HOME}/.git-credentials"
+                chmod 600 "${HOME}/.git-credentials"
+            fi
+        else
+            git config --global credential.helper store
+            printf 'https://oauth2:%s@github.com\n' "$GIT_TOKEN" > "${HOME}/.git-credentials"
+            chmod 600 "${HOME}/.git-credentials"
+            echo "[setup] Git: credentials configured (github.com)"
         fi
-        git config --global credential.helper store
-        printf 'https://oauth2:%s@github.com\n' "$GIT_TOKEN" > "${HOME}/.git-credentials"
-        chmod 600 "${HOME}/.git-credentials"
-        git config --global url."https://oauth2:${GIT_TOKEN}@github.com/".insteadOf "https://github.com/"
-        echo "[setup] Git: credentials configured (github.com)"
     fi
 }
 
