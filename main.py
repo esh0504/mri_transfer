@@ -37,7 +37,7 @@ if HERE not in sys.path:
 import artisynth.utils as art                     # noqa: E402  (configure 용)
 import retarget.contour as rcontour               # noqa: E402  (configure 용)
 from modules.utils import (                       # noqa: E402
-    OUT_DIR, ensure_dir, repo_path, save_png, save_npy, save_obj, extract_obj,
+    OUT_DIR, ensure_dir, data_path, save_png, save_npy, save_obj, extract_obj,
     load_mask, load_video, vis_with_activations,
 )
 from artisynth.utils import fem, model_from_obj, MUSCLE_NAMES, TongueModel  # noqa: E402
@@ -47,9 +47,9 @@ from retarget import register, lift_masks, attach_registration, retarget    # no
 # --------------------------------------------------------------------------- #
 # 헬퍼
 # --------------------------------------------------------------------------- #
-def _resolve(path):
-    """상대경로면 리포 루트(V2의 부모) 기준으로 해석."""
-    return path if os.path.isabs(path) else repo_path(path)
+def _resolve(path, data_root):
+    """절대경로면 그대로, 상대경로면 cfg.paths.data_root 기준으로 해석."""
+    return path if os.path.isabs(path) else data_path(data_root, path)
 
 
 def _outdir(cfg):
@@ -101,17 +101,18 @@ def stage_retarget(cfg):
     def op(name):
         return os.path.join(outdir, name)
 
-    tongue_obj = _resolve(cfg.paths.tongue_obj)
+    data_root = cfg.paths.data_root
+    tongue_obj = _resolve(cfg.paths.tongue_obj, data_root)
     reg_csv = op("registration.csv")
     ref_3d = model_from_obj(tongue_obj)
-    rest = load_mask(_resolve(cfg.paths.rest_mask))
+    rest = load_mask(_resolve(cfg.paths.rest_mask, data_root))
 
     print("[retarget/1] register")
     info = register(rest, ref_3d, reg_csv, mm_per_px=mm)
     print("  ", info["path"], "| anchors:", info["names"], "| RMS %.2f mm" % info["rms_mm"])
 
     print("[retarget/2] lift")
-    video = load_video(_resolve(cfg.paths.mask_dir))
+    video = load_video(_resolve(cfg.paths.mask_dir, data_root))
     lifted = lift_masks(video, mm_per_px=mm, nz=rc.lift.nz, half_w=rc.lift.half_w,
                         edge_drop=rc.lift.edge_drop, width_end=rc.lift.width_end)
     save_npy(op("tongue_lift_3d.npy"), lifted)
@@ -120,7 +121,7 @@ def stage_retarget(cfg):
 
     print("[retarget/3] retarget")
     ref_3d = attach_registration(ref_3d, reg_csv)
-    target_path = _resolve(cfg.paths.target_mask)
+    target_path = _resolve(cfg.paths.target_mask, data_root)
     rkw = dict(nctrl=rc.retarget.nctrl, rbf_len=rc.retarget.rbf_len,
                spatial_win=rc.retarget.spatial_win, mm_per_px=mm)
 
@@ -158,7 +159,7 @@ def stage_fem(cfg):
     print("[fem] activations:", activations)
 
     # rest 렌더 + OBJ (참고용)
-    rest_model = _rest_model(_resolve(cfg.paths.tongue_obj))
+    rest_model = _rest_model(_resolve(cfg.paths.tongue_obj, cfg.paths.data_root))
     save_png(vis_with_activations(rest_model, render), op("rest.png"))
     save_obj(extract_obj(rest_model), op("rest.obj"))
 

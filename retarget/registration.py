@@ -11,7 +11,7 @@ _WORK_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")
 if _WORK_ROOT not in sys.path:
     sys.path.insert(0, _WORK_ROOT)
 
-from tongue_contour import anatomical_landmarks  # noqa: E402
+from retarget.utils import anatomical_landmarks  # noqa: E402
 
 
 def _require_file(path, label="path"):

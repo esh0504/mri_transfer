@@ -6,7 +6,7 @@ import numpy as np
 from scipy.interpolate import RBFInterpolator
 from scipy.ndimage import uniform_filter1d
 
-from .contour import mask2contour
+from retarget.contour import mask2contour
 from modules.utils import mask_label_2d, read_csv_dicts
 
 

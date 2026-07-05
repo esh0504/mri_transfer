@@ -17,10 +17,11 @@ defaults:
 # 실행 스테이지: retarget | fem | all
 stage: all
 
-# 경로 — 상대경로는 리포 루트(V2의 부모) 기준, 절대경로도 가능
+# 경로 — data_root 아래 상대경로(절대경로도 가능). data_root 기본값: ./datasets
 paths:
+  data_root: ./datasets
   tongue_obj: tongue_model/tongue_rest_m.obj
-  mask_dir: datasets/GT_Segmentations/Subject3
+  mask_dir: GT_Segmentations/Subject3
   rest_mask: ${paths.mask_dir}/mask_1.mat
   # 단일 .mat 파일이면 1프레임 retarget, 폴더면 폴더 내 mask_*.mat 전체를 retarget
   target_mask: ${paths.mask_dir}/mask_51.mat

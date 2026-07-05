@@ -29,7 +29,7 @@ x-common: &common
     dockerfile: Dockerfile
   volumes:
     - ${PROJECT_DIR:-.}:/workspace
-    - ${DATA_DIR:-./datasets}:/workspace/datasets:ro
+    - ${DATA_DIR:-./datasets}:/workspace/datasets
   environment: &env
     ARTISYNTH_HOME: /opt/artisynth/artisynth_core
     PYTHONPATH: /workspace
