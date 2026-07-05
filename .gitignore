@@ -33,6 +33,7 @@ datasets/**
 
 # Docker / local env
 .env
+tokens.env
 data/
 
 # OS

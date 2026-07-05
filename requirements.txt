@@ -9,3 +9,4 @@ pyrender
 PyVirtualDisplay
 hydra-core
 omegaconf
+huggingface_hub

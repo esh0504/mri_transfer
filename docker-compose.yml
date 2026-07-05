@@ -11,6 +11,7 @@
 #   docker compose build
 #
 # Persistent dev container:
+#   cp tokens.env.example tokens.env   # GIT_TOKEN, HUGGINGFACE_TOKEN 입력
 #   docker compose up -d workspace
 #   docker compose exec workspace bash
 #   docker compose stop workspace
@@ -39,6 +40,7 @@ x-common: &common
     MRI_REST_MASK: ${MRI_REST_MASK:-/workspace/datasets/GT_Segmentations/Subject3/mask_1.mat}
     MRI_TARGET_MASK: ${MRI_TARGET_MASK:-/workspace/datasets/GT_Segmentations/Subject3/mask_51.mat}
     PIPELINE_ARGS: ${PIPELINE_ARGS:-}
+    TOKENS_FILE: ${TOKENS_FILE:-/workspace/tokens.env}
   working_dir: /workspace
   stdin_open: true
   tty: true
