@@ -1,7 +1,7 @@
 # ArtiSynth FEM forward 파라미터 (artisynth/utils.py 전역으로 주입)
 # CLI 오버라이드: python main.py artisynth.nramp=40 artisynth.incomp=NODAL
 
-artisynth_home: 'C:\Users\d11\artisynth\artisynth_core'
+artisynth_home: '/opt/artisynth/artisynth_core'
 tongue_model: artisynth.models.tongue3d.HexTongueDemo
 settle_t: 0.4              # hold 구간 시간(초)
 maxstep: 0.0005           # FEM 적분 스텝(초)

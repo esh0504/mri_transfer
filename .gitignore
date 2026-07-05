@@ -34,6 +34,7 @@ datasets/**
 # Docker / local env
 .env
 tokens.env
+tokens.env.example
 data/
 
 # OS

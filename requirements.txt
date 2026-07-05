@@ -10,3 +10,5 @@ PyVirtualDisplay
 hydra-core
 omegaconf
 huggingface_hub
+PyOpenGL
+PyOpenGL-accelerate
