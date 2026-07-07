@@ -3,6 +3,7 @@
 
 mm_per_px: 1.164          # 이미지 픽셀 → mm (register/lift/retarget/contour 공통)
 # target_mask 가 폴더면 자동으로 전체 프레임을 retarget (단일 파일이면 1프레임)
+gif_fps: 10               # 폴더 전체 retarget 시 PNG들을 이 fps로 묶어 retargeted.gif 생성
 
 lift:                     # 2D contour → 대칭 3D dome lift
   nz: 15
@@ -16,6 +17,9 @@ retarget:                 # RBF 기반 mesh 변형
   spatial_win: 3
 
 contour:                  # 2D 혀 마스크 → dorsal contour
-  n_markers: 25
+  mode: v8               # v1..v6 / v7(normal corner+좌측각 cap) / v8(tip=V7 + root도 normal)
+  n_markers: 25           # 알고리즘 설명: versionmanagement.md
   clip_root: true
   clip_drop_frac: 1.0
+  # 3D 모델 midsag dorsal 정점(tip→root, 수작업 지정). null이면 자동 추정.
+  midsag_indices: [418, 416, 409, 408, 414, 406, 422]

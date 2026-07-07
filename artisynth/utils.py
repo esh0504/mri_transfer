@@ -3,22 +3,9 @@
 """
 V2/artisynth/utils.py
 
-ArtiSynth FEM 혀 모델 알고리즘 — 로드 + 11D 근육 활성값 forward 구동.
-JPype로 ArtiSynth를 *인프로세스* 로드하고, 활성값을 램프로 가해 평형까지 시뮬한다.
-파일 IO·시각화는 이 모듈에 없다(전부 modules.utils). 여기는 계산만 담당.
-
-핵심 API:
-
-    model = fem(model, muscle_values)   # 로드 + 활성값 적용 → TongueModel
-    model = model_from_obj(path)        # OBJ rest 메쉬 → TongueModel (JVM 불필요)
-
-사용 예:
-
-    from artisynth.utils import fem, MUSCLE_NAMES
-    from modules.utils import vis, save_obj, extract_obj
-
-    model = fem(None, [0.3] + [0.0] * 10)      # 11D 활성값 (MUSCLE_NAMES 순서)
-    model = fem(model, {"GGP": 0.5, "HG": 0.2})  # 핸들 재사용(로드 1회만)
+ArtiSynth FEM 혀 모델의 *헬퍼 계층* — 설정 상태 + JVM/모델 로드 + 활성값 적용 내부 루틴.
+공개 API(fem / load_model / model_from_obj / shutdown)는 artisynth/artisynth.py 에 있다.
+파일 IO·시각화는 이 패키지에 없다(전부 modules.utils). 여기는 계산 헬퍼만 담당.
 
 환경 변수 (기본값):
     ARTISYNTH_HOME   ArtiSynth 트리 경로 (classes + lib/*.jar)
@@ -37,8 +24,6 @@ import glob
 import os
 
 import numpy as np
-
-from modules.utils import load_obj
 
 # --------------------------------------------------------------------------- #
 # 설정
@@ -65,7 +50,7 @@ MUSCLE_NAMES = ["GGP", "GGM", "GGA", "STY", "GH", "MH",
                 "HG", "VERT", "TRANS", "IL", "SL"]
 
 # configure()가 덮어쓸 수 있는 전역 설정 키 → 형변환 함수.
-_CONFIG_KEYS = {
+CONFIG_KEYS = {
     "artisynth_home": str, "tongue_model": str, "settle_t": float,
     "maxstep": float, "ramp_step_t": float, "nramp": int,
     "nramp_retry_start": int, "nramp_retry_max": int,
@@ -77,12 +62,12 @@ def configure(cfg=None, **overrides):
     """모듈 전역 fem 파라미터를 설정으로 덮어쓴다 (Hydra 등에서 호출).
 
     사용: configure(cfg.artisynth)  또는  configure(nramp=40, incomp="NODAL").
-    cfg는 dict/DictConfig(매핑) 무엇이든 가능. 인식하는 키는 _CONFIG_KEYS 참조.
+    cfg는 dict/DictConfig(매핑) 무엇이든 가능. 인식하는 키는 CONFIG_KEYS 참조.
     """
     opts = dict(cfg) if cfg else {}
     opts.update(overrides)
     g = globals()
-    for key, cast in _CONFIG_KEYS.items():
+    for key, cast in CONFIG_KEYS.items():
         if key in opts and opts[key] is not None:
             g[key.upper()] = cast(opts[key])
 
@@ -112,25 +97,10 @@ class TongueModel:
         return self.main is not None
 
 
-def model_from_obj(path):
-    """OBJ 표면 메쉬를 TongueModel로 래핑(verts/faces만 채움).
-
-    JVM/ArtiSynth 없이 실제 혀 rest 메쉬로 렌더/테스트할 때 사용한다.
-    근육 활성값에 의한 *변형*은 여전히 fem()(ArtiSynth)이 필요하다.
-    (OBJ 파싱은 modules.utils.load_obj — IO는 그쪽에 모여 있다.)"""
-    v, f = load_obj(path)
-    m = TongueModel()
-    m.verts = v
-    m.faces = f
-    m.names = list(MUSCLE_NAMES)
-    m.activation = np.zeros(len(MUSCLE_NAMES))
-    return m
-
-
 # --------------------------------------------------------------------------- #
 # JPype / JVM
 # --------------------------------------------------------------------------- #
-def _start_jvm():
+def start_jvm():
     import jpype
     if jpype.isJVMStarted():
         return
@@ -146,12 +116,12 @@ def _start_jvm():
     )
 
 
-def _jclass(name):
+def jclass(name):
     import jpype
     return jpype.JClass(name)
 
 
-def _find_tongue(root):
+def find_tongue(root):
     """muscle exciter를 가진 FemMuscleModel을 재귀 탐색."""
     def rec(m):
         try:
@@ -176,7 +146,7 @@ def _find_tongue(root):
     return None
 
 
-def _extract_faces(mesh):
+def extract_faces(mesh):
     """표면 메쉬 face 인덱스 (F,3). 토폴로지는 불변이라 rest에서 1회만 추출."""
     faces = mesh.getFaces()
     nf = faces.size()
@@ -189,7 +159,7 @@ def _extract_faces(mesh):
     return F
 
 
-def _deactivate_probes(root):
+def deactivate_probes(root):
     try:
         ips = root.getInputProbes()
         for i in range(ips.size()):
@@ -201,7 +171,7 @@ def _deactivate_probes(root):
         pass
 
 
-def _read_surface(model):
+def read_surface(model):
     """현재 표면 정점 (N,3) metres."""
     mesh = model.mesh
     verts = mesh.getVertices()
@@ -215,7 +185,7 @@ def _read_surface(model):
     return out
 
 
-def _configure_fem_stability(root, tongue):
+def configure_fem_stability(root, tongue):
     """FEM 적분 안정화 — GUI Play와 동일 조건으로 맞춤.
 
     핵심: adaptive stepping을 켜둔다. GUI는 이 안전장치로 element가 뒤집힐 스텝을
@@ -228,22 +198,22 @@ def _configure_fem_stability(root, tongue):
     except Exception:
         pass
     try:
-        FemModel = _jclass("artisynth.core.femmodels.FemModel")
+        FemModel = jclass("artisynth.core.femmodels.FemModel")
         tongue.setIncompressible(getattr(FemModel.IncompMethod, INCOMP))
         tongue.setMaxStepSize(MAXSTEP)
     except Exception as e:
         print("note: setIncompressible failed:", e)
 
 
-def _load(model_name=None):
+def load(model_name=None):
     """JVM 시작 + 모델 빌드 → 채워진 TongueModel 반환."""
     import jpype
 
-    _start_jvm()
-    JString = _jclass("java.lang.String")
+    start_jvm()
+    JString = jclass("java.lang.String")
     JArray = jpype.JArray
-    Main = _jclass("artisynth.core.driver.Main")
-    ArrayList = _jclass("java.util.ArrayList")
+    Main = jclass("artisynth.core.driver.Main")
+    ArrayList = jclass("java.util.ArrayList")
 
     model_name = model_name or TONGUE_MODEL
     m = Main.getMain()
@@ -260,7 +230,7 @@ def _load(model_name=None):
     if not m.loadModel(model_name, model_name.split(".")[-1], JArray(JString)([])):
         raise RuntimeError("loadModel failed: " + str(m.getErrorMessage()))
     root = m.getRootModel()
-    tongue = _find_tongue(root)
+    tongue = find_tongue(root)
     if tongue is None:
         raise RuntimeError(
             "no FemMuscleModel with exciters found in " + model_name)
@@ -271,8 +241,8 @@ def _load(model_name=None):
         tongue.setGravity(0, 0, 0)
     except Exception:
         pass
-    _configure_fem_stability(root, tongue)
-    _deactivate_probes(root)
+    configure_fem_stability(root, tongue)
+    deactivate_probes(root)
 
     exlist = tongue.getMuscleExciters()
     exciters = [exlist.get(i) for i in range(exlist.size())]
@@ -285,8 +255,8 @@ def _load(model_name=None):
     model.exciters = exciters
     model.names = names
     model.mesh = mesh
-    model.faces = _extract_faces(mesh)
-    model.verts = _read_surface(model)
+    model.faces = extract_faces(mesh)
+    model.verts = read_surface(model)
     print("ArtiSynth ready: %d exciters, %d surface verts, %d FEM nodes. order: %s"
           % (len(exciters), mesh.numVertices(), tongue.numNodes(), ",".join(names)))
     print("  fem settings: maxStep=%.4f rampStep=%.3fs incompressible=%s adaptive=%s"
@@ -297,7 +267,7 @@ def _load(model_name=None):
 # --------------------------------------------------------------------------- #
 # 활성값 적용
 # --------------------------------------------------------------------------- #
-def _coerce_activation(muscle_values, names):
+def coerce_activation(muscle_values, names):
     """muscle_values(list/np/dict) → exciter 순서(names)에 맞춘 (M,) float 벡터."""
     if muscle_values is None:
         return np.zeros(len(names), dtype=float)
@@ -318,7 +288,7 @@ def _coerce_activation(muscle_values, names):
         % (a.shape[0], len(names), ",".join(names)))
 
 
-def _nramp_retry_schedule(start=None, max_nramp=None):
+def nramp_retry_schedule(start=None, max_nramp=None):
     """fem() 실패 시 재시도할 NRAMP 목록: start, 2×, …, max_nramp."""
     if start is None:
         start = NRAMP_RETRY_START
@@ -333,7 +303,7 @@ def _nramp_retry_schedule(start=None, max_nramp=None):
         n = min(n * 2, max_nramp)
 
 
-def _apply_activation(model, a, settle=None, nramp=None):
+def apply_activation(model, a, settle=None, nramp=None):
     """활성값을 open-loop로 가해 평형까지 forward 시뮬. 성공 여부(bool) 반환.
 
     매 호출: rest로 reset → nramp 단계로 서서히 올림 → 최종값으로 hold.
@@ -348,8 +318,8 @@ def _apply_activation(model, a, settle=None, nramp=None):
     exciters = model.exciters
     root = m.getRootModel()
     m.reset()
-    _deactivate_probes(root)
-    _configure_fem_stability(root, model.tongue)
+    deactivate_probes(root)
+    configure_fem_stability(root, model.tongue)
     seg = float(RAMP_STEP_T)
     ok = True
     fail_step = None
@@ -382,72 +352,3 @@ def _apply_activation(model, a, settle=None, nramp=None):
             print("WARNING: solver exception during hold (NRAMP=%d): %s"
                   % (nramp, fail_ex))
     return ok
-
-
-# --------------------------------------------------------------------------- #
-# 공개 API: fem
-# --------------------------------------------------------------------------- #
-def fem(model=None, muscle_values=None, settle=None, model_name=None):
-    """ArtiSynth FEM 혀 모델을 로드(필요 시)하고 11D 근육 활성값을 적용한다.
-
-    Parameters
-    ----------
-    model : TongueModel or None
-        이전에 로드한 핸들. None이면 JVM 시작 + 모델 빌드(첫 호출). 이후 프레임에선
-        반환된 핸들을 다시 넘겨 재사용(로드 1회만).
-    muscle_values : array-like(11,) or dict or None
-        근육 활성값 0..1. 길이 11 벡터(MUSCLE_NAMES 순서) 또는 {이름: 값} dict.
-        None이면 rest(전부 0).
-    settle : float, optional
-        평형까지 hold 시뮬 시간(초). 기본 SETTLE_T.
-    model_name : str, optional
-        ArtiSynth 모델 클래스명. 기본 TONGUE_MODEL.
-
-    Raises
-    ------
-    RuntimeError
-        NRAMP 재시도(50→100→200→400→500) 후에도 forward가 실패하면 발생.
-
-    Returns
-    -------
-    TongueModel
-        변형된 표면 정점(model.verts, (N,3) metres), faces, 적용 활성값이 채워진 핸들.
-    """
-    if model is None or not getattr(model, "loaded", False):
-        model = _load(model_name)
-
-    a = _coerce_activation(muscle_values, model.names)
-    ok = False
-    used_nramp = None
-    for nramp in _nramp_retry_schedule():
-        if nramp > NRAMP_RETRY_START:
-            print("fem: NRAMP=%d 재시도 …" % nramp)
-        ok = _apply_activation(model, a, settle=settle, nramp=nramp)
-        if ok:
-            used_nramp = nramp
-            if nramp > NRAMP_RETRY_START:
-                print("fem: NRAMP=%d 에서 성공" % nramp)
-            break
-        if nramp < NRAMP_RETRY_MAX:
-            print("fem: NRAMP=%d 실패 — ramp 단계 수 증가" % nramp)
-
-    if not ok:
-        active = [(n, float(v)) for n, v in zip(model.names, a) if v > 0]
-        raise RuntimeError(
-            "fem forward failed after NRAMP retries (%d..%d): "
-            "inverted elements / solver error. active=%s "
-            "(lower activation or MAXSTEP may help)"
-            % (NRAMP_RETRY_START, NRAMP_RETRY_MAX, active))
-
-    model.activation = a
-    model.ok = ok
-    model.nramp = used_nramp
-    model.verts = _read_surface(model)
-    return model
-
-
-def shutdown():
-    """JVM 종료(프로세스 당 1회만 시작/종료 가능)."""
-    import jpype
-    if jpype.isJVMStarted():
-        jpype.shutdownJVM()

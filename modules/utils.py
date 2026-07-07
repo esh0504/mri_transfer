@@ -14,7 +14,7 @@ model.verts / model.faces / model.names 만 사용). 알고리즘 모듈은 여�
   · OBJ  IO     load_obj / extract_obj / save_obj
   · mask IO     load_mask / load_video / mask_label_2d
   · CSV / npy   save_csv / read_csv_dicts / save_npy
-  · 시각화      vis / vis3d / vis_mask / activation_caption / vis_with_activations
+  · 시각화      visualization (+ vis / vis3d / vis_mask / vis_with_activations 호환 래퍼)
 
 알고리즘(artisynth/·retarget/)은 여기의 프리미티브를 호출해서 IO/렌더를 처리한다.
 """
@@ -89,6 +89,27 @@ def save_npy(path, arr):
     ensure_dir(os.path.dirname(os.path.abspath(path)) or ".")
     np.save(path, np.asarray(arr))
     return path
+
+
+def save_gif(png_paths, out_path, fps=10, loop=0):
+    """PNG 경로 리스트를 순서대로 묶어 GIF 저장. 반환: 저장 경로 또는 None.
+
+    png_paths: 프레임 순서대로 정렬된 PNG 경로 리스트(None 항목은 건너뜀).
+    fps: 초당 프레임(기본 10, RT-MRI와 동일). PIL로 저장한다."""
+    paths = [p for p in png_paths if p]
+    if len(paths) < 1:
+        return None
+    ensure_dir(os.path.dirname(os.path.abspath(out_path)) or ".")
+    try:
+        from PIL import Image
+        imgs = [Image.open(p).convert("RGB") for p in paths]
+        duration = int(1000.0 / max(float(fps), 1e-6))
+        imgs[0].save(out_path, save_all=True, append_images=imgs[1:],
+                     duration=duration, loop=loop)
+        return out_path
+    except Exception as e:
+        print("   (GIF 저장 건너뜀: %s)" % e)
+        return None
 
 
 # --------------------------------------------------------------------------- #
@@ -494,91 +515,6 @@ def _render_mesh3d_pyrender(verts, faces, size=(768, 768), bg=(28, 28, 36),
     return img
 
 
-def _vis_png_path(out_path_):
-    p = os.path.abspath(str(out_path_))
-    return p if p.lower().endswith(".png") else p + ".png"
-
-
-def _write_vis_png(img, out_path_):
-    path = _vis_png_path(out_path_)
-    ensure_dir(os.path.dirname(path))
-    try:
-        import imageio.v2 as imageio
-        imageio.imwrite(path, img)
-    except ImportError as e:
-        raise ImportError("vis save: pip install imageio") from e
-    return path
-
-
-def _apply_vis_settings(settings, defaults):
-    """rendering_settings dict → vis() 옵션 (elev/azim 구 이름 호환)."""
-    if not settings:
-        return dict(defaults)
-    out = dict(defaults)
-    for key in ("size", "bg", "color", "out_path", "upper_degree", "right_degree"):
-        if key in settings:
-            out[key] = settings[key]
-    if "elev" in settings:
-        out["upper_degree"] = settings["elev"]
-    if "azim" in settings:
-        out["right_degree"] = settings["azim"]
-    return out
-
-
-def vis(model_or_verts, faces=None, out_path=None, size=(768, 768),
-        bg=(28, 28, 36), color=(230, 90, 75), upper_degree=45.0,
-        right_degree=90.0, **kwargs):
-    """3D mesh를 trimesh+pyrender로 렌더한다.
-
-    1) vis(model)                        → (H, W, 3) uint8
-    2) vis(model, rendering_settings)    → settings dict
-       (예: dict(upper_degree=30, right_degree=90, size=(640, 640)))
-    3) vis(model, upper_degree=30, ...)  → 키워드 인자
-    4) vis(verts, faces, out_path, ...)  → PNG 저장, 경로(str) 반환
-    """
-    defaults = dict(size=size, bg=bg, color=color, upper_degree=upper_degree,
-                    right_degree=right_degree, out_path=out_path)
-
-    if isinstance(faces, dict):                 # vis(model, settings)
-        opts = _apply_vis_settings(faces, defaults)
-        opts.update({k: v for k, v in kwargs.items()
-                     if k in defaults or k in ("elev", "azim")})
-        if "elev" in kwargs:
-            opts["upper_degree"] = kwargs["elev"]
-        if "azim" in kwargs:
-            opts["right_degree"] = kwargs["azim"]
-        faces = None
-    else:
-        opts = _apply_vis_settings(kwargs, defaults)
-
-    size = opts["size"]; bg = opts["bg"]; color = opts["color"]
-    upper_degree = opts["upper_degree"]; right_degree = opts["right_degree"]
-    out_path = opts["out_path"]
-
-    if out_path is not None:                    # vis(verts, faces, out_path)
-        if faces is None:
-            raise ValueError("vis(verts, faces, out_path): faces가 필요합니다.")
-        img = _render_mesh3d_pyrender(
-            model_or_verts, faces, size=size, bg=bg, color=color,
-            upper_degree=upper_degree, right_degree=right_degree)
-        return _write_vis_png(img, out_path)
-
-    model = model_or_verts
-    _require_mesh(model)
-    return _render_mesh3d_pyrender(
-        model.verts, model.faces, size=size, bg=bg, color=color,
-        upper_degree=upper_degree, right_degree=right_degree)
-
-
-def vis3d(model, size=(768, 768), bg=(28, 28, 36), color=(230, 90, 75),
-          upper_degree=45.0, right_degree=90.0, show_edges=False):
-    """vis()와 동일한 trimesh+pyrender 3D 렌더 (show_edges 현재 미사용)."""
-    _require_mesh(model)
-    return _render_mesh3d_pyrender(
-        model.verts, model.faces, size=size, bg=bg, color=color,
-        upper_degree=upper_degree, right_degree=right_degree)
-
-
 # --------------------------------------------------------------------------- #
 # 시각화 — 11D 활성값 오버레이
 # --------------------------------------------------------------------------- #
@@ -610,24 +546,190 @@ def activation_caption(names, activation, cols=6, pad=8, line_h=18,
     return np.asarray(panel)
 
 
-def vis_with_activations(model, settings=None, names=None):
-    """vis() 렌더 + 하단 활성값 패널을 세로로 이어 붙인 (H, W, 3) uint8.
+def _coerce_vis_config(config):
+    """dict / OmegaConf / Hydra cfg(.render) → flat dict."""
+    if config is None:
+        return {}
+    if hasattr(config, "render"):
+        config = config.render
+    try:
+        from omegaconf import OmegaConf
+        if OmegaConf.is_config(config):
+            config = OmegaConf.to_container(config, resolve=True)
+    except Exception:
+        pass
+    if not isinstance(config, dict):
+        raise TypeError(
+            "visualization config must be dict, OmegaConf, or object with .render")
+    if isinstance(config.get("render"), dict):
+        merged = dict(config["render"])
+        merged.update({k: v for k, v in config.items() if k != "render"})
+        return merged
+    return dict(config)
 
-    names 미지정 시 model.names 사용(둘 다 없으면 활성값 패널 생략)."""
-    settings = settings or {}
-    img = vis(model, settings) if settings else vis(model)
-    act = getattr(model, "activation", None)
-    if act is None:
-        return img
-    names = names or getattr(model, "names", None)
-    if names is None:
-        return img
-    act = np.asarray(act, dtype=float).reshape(-1)
-    cap = activation_caption(list(names)[: len(act)], act)
-    bg = settings.get("bg", (28, 28, 36)) if isinstance(settings, dict) else (28, 28, 36)
+
+def _merge_vis_defaults(raw):
+    """Flat config dict + 기본값 병합."""
+    defaults = dict(
+        mode="3d",
+        show_activations=None,
+        out_path=None,
+        upper_degree=45.0,
+        right_degree=90.0,
+        size=(640, 640),
+        bg=(28, 28, 36),
+        color=DEFAULT_MESH_COLOR,
+        plane="midsag",
+        bounds=None,
+        fill=(255, 255, 255),
+        mask_bg=(0, 0, 0),
+        names=None,
+        caption_cols=6,
+    )
+    out = dict(defaults)
+    out.update({k: v for k, v in raw.items() if v is not None})
+    if "size" in out:
+        out["size"] = tuple(int(x) for x in out["size"])
+    if "color" in out:
+        out["color"] = tuple(int(c) for c in out["color"])
+    if "bg" in out:
+        out["bg"] = tuple(int(c) for c in out["bg"])
+    if "fill" in out:
+        out["fill"] = tuple(int(c) for c in out["fill"])
+    if "mask_bg" in out:
+        out["mask_bg"] = tuple(int(c) for c in out["mask_bg"])
+    if "elev" in raw:
+        out["upper_degree"] = float(raw["elev"])
+    if "azim" in raw:
+        out["right_degree"] = float(raw["azim"])
+    out["mode"] = str(out["mode"]).lower()
+    return out
+
+
+def _stack_activation_panel(img, cap, bg):
+    """3D 렌더(img) 아래 활성값 패널(cap)을 세로로 이어 붙인다."""
     w = max(img.shape[1], cap.shape[1])
     if img.shape[1] < w:
         img = np.hstack([img, np.full((img.shape[0], w - img.shape[1], 3), bg, dtype=np.uint8)])
     if cap.shape[1] < w:
-        cap = np.hstack([cap, np.full((cap.shape[0], w - cap.shape[1], 3), (28, 28, 36), dtype=np.uint8)])
+        cap = np.hstack([cap, np.full((cap.shape[0], w - cap.shape[1], 3), bg, dtype=np.uint8)])
     return np.vstack([img, cap])
+
+
+def visualization(model, config=None):
+    """통합 시각화 API — 3D 렌더 / 2D 마스크 / 활성값 패널.
+
+    model: ``.verts`` / ``.faces`` duck-typing mesh (선택: ``.activation``, ``.names``)
+    config: PNG 저장 경로(str), dict, OmegaConf, Hydra ``cfg``, 또는 ``cfg.render`` 노드.
+
+    config 키:
+      mode             ``"3d"`` (기본) | ``"mask"``
+      show_activations ``True``/``False``/``None`` (None → model.activation 있으면 True)
+      out_path         PNG 저장 경로 (지정 시 경로 str 반환, 아니면 (H,W,3) uint8)
+      upper_degree, right_degree, size, bg, color   — 3D 카메라/스타일
+      elev, azim       — upper_degree / right_degree 별칭
+      plane, bounds, fill, mask_bg                  — 2D mask (mode=mask)
+      names, caption_cols                           — 활성값 패널
+
+    예::
+
+        visualization(model, "out.png")
+        visualization(model, cfg)
+        visualization(model, {"mode": "mask"})
+    """
+    if isinstance(config, str):
+        config = {"out_path": config}
+    opts = _merge_vis_defaults(_coerce_vis_config(config))
+    mode = opts["mode"]
+
+    if mode == "mask":
+        _require_mesh(model)
+        img = vis_mask(
+            model, size=opts["size"], bounds=opts["bounds"],
+            plane=opts["plane"], fill=opts["fill"], bg=opts["mask_bg"])
+    else:
+        _require_mesh(model)
+        img = _render_mesh3d_pyrender(
+            model.verts, model.faces,
+            size=opts["size"], bg=opts["bg"], color=opts["color"],
+            upper_degree=opts["upper_degree"], right_degree=opts["right_degree"])
+        show_act = opts["show_activations"]
+        if show_act is None:
+            show_act = getattr(model, "activation", None) is not None
+        if show_act:
+            act = getattr(model, "activation", None)
+            if act is not None:
+                names = opts["names"] or getattr(model, "names", None)
+                if names is not None:
+                    act = np.asarray(act, dtype=float).reshape(-1)
+                    cap = activation_caption(
+                        list(names)[: len(act)], act,
+                        cols=opts["caption_cols"], bg=opts["bg"])
+                    img = _stack_activation_panel(img, cap, opts["bg"])
+
+    if opts["out_path"]:
+        return _write_vis_png(img, opts["out_path"])
+    return img
+
+
+def _vis_png_path(out_path_):
+    p = os.path.abspath(str(out_path_))
+    return p if p.lower().endswith(".png") else p + ".png"
+
+
+def _write_vis_png(img, out_path_):
+    path = _vis_png_path(out_path_)
+    ensure_dir(os.path.dirname(path))
+    try:
+        import imageio.v2 as imageio
+        imageio.imwrite(path, img)
+    except ImportError as e:
+        raise ImportError("vis save: pip install imageio") from e
+    return path
+
+
+def vis(model_or_verts, faces=None, out_path=None, size=(768, 768),
+        bg=(28, 28, 36), color=(230, 90, 75), upper_degree=45.0,
+        right_degree=90.0, **kwargs):
+    """3D mesh 렌더 (호환 래퍼 → :func:`visualization`)."""
+    if isinstance(faces, dict):
+        cfg = dict(faces)
+        cfg.update(kwargs)
+        if out_path is not None:
+            cfg["out_path"] = out_path
+        if not isinstance(model_or_verts, dict):
+            return visualization(model_or_verts, cfg)
+        raise ValueError("vis(model, settings): model이 필요합니다.")
+
+    if out_path is not None:
+        if faces is None:
+            raise ValueError("vis(verts, faces, out_path): faces가 필요합니다.")
+        class _Mesh:
+            pass
+        m = _Mesh()
+        m.verts = model_or_verts
+        m.faces = faces
+        return visualization(m, dict(
+            out_path=out_path, size=size, bg=bg, color=color,
+            upper_degree=upper_degree, right_degree=right_degree, **kwargs))
+
+    cfg = dict(size=size, bg=bg, color=color, upper_degree=upper_degree,
+               right_degree=right_degree, show_activations=False, **kwargs)
+    return visualization(model_or_verts, cfg)
+
+
+def vis3d(model, size=(768, 768), bg=(28, 28, 36), color=(230, 90, 75),
+          upper_degree=45.0, right_degree=90.0, show_edges=False):
+    """3D 렌더 (호환 래퍼 → :func:`visualization`)."""
+    return visualization(model, dict(
+        size=size, bg=bg, color=color, upper_degree=upper_degree,
+        right_degree=right_degree, show_activations=False))
+
+
+def vis_with_activations(model, settings=None, names=None):
+    """3D 렌더 + 활성값 패널 (호환 래퍼 → :func:`visualization`)."""
+    cfg = dict(settings or {})
+    cfg["show_activations"] = True
+    if names is not None:
+        cfg["names"] = names
+    return visualization(model, cfg)

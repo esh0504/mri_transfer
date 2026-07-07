@@ -15,7 +15,7 @@ defaults:
   - _self_
 
 # 실행 스테이지: retarget | fem | all
-stage: all
+stage: retarget
 
 # 경로 — data_root 아래 상대경로(절대경로도 가능). data_root 기본값: ./datasets
 paths:
@@ -24,8 +24,8 @@ paths:
   mask_dir: GT_Segmentations/Subject3
   rest_mask: ${paths.mask_dir}/mask_1.mat
   # 단일 .mat 파일이면 1프레임 retarget, 폴더면 폴더 내 mask_*.mat 전체를 retarget
-  target_mask: ${paths.mask_dir}/mask_51.mat
-  out_dir: null            # null → modules.utils.OUT_DIR (_test_out)
+  target_mask: ${paths.mask_dir}
+  out_dir: ./test/v8           # null → modules.utils.OUT_DIR (_test_out)
 
 # vis() 카메라/크기 (해부학 좌표: +Z=위, -Y=우, -X=앞. right_degree=90=우측 sagittal)
 render:
