@@ -14,7 +14,9 @@ lift:                     # 2D contour → 대칭 3D dome lift
 retarget:                 # RBF 기반 mesh 변형
   nctrl: 13
   rbf_len: 18.0
-  spatial_win: 3
+  spatial_win: 3          # 곡선 따라(spatial) 변위 스무딩
+  temporal_win: 9         # 폴더(비디오) 시 프레임축 Savitzky-Golay 창(홀수). 1이면 off
+  temporal_poly: 2
 
 contour:                  # 2D 혀 마스크 → dorsal contour
   mode: v8               # v1..v6 / v7(normal corner+좌측각 cap) / v8(tip=V7 + root도 normal)

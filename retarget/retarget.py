@@ -378,3 +378,65 @@ def retarget(ref_3d, source, target, nctrl=13, rbf_len=18.0, spatial_win=3,
         "Mesh": F,
         "Color": displacement_colors(V_rest_m, V_def_m),
     }
+
+
+def retarget_video(ref_3d, source, targets, nctrl=13, rbf_len=18.0, spatial_win=3,
+                   temporal_win=9, temporal_poly=2, mm_per_px=None):
+    """시퀀스 전체를 한 번에 retarget + **시간축(Savitzky-Golay) 스무딩**.
+
+    프레임 독립 retarget과 달리, 프레임별 변위(delta=target−source contour)를 쌓아
+    **곡선(spatial) + 프레임(temporal)** 으로 평활한 뒤 RBF를 적용해 시계열 지터를 줄인다
+    (prev_work 방식). registration은 ref_3d.registration_csv를 재사용(1회).
+
+    Parameters
+    ----------
+    ref_3d : TongueModel (verts/faces metres, registration_csv 부착됨)
+    source : rest mask (2D/3D)
+    targets : 마스크 리스트/시퀀스 (각 프레임)
+    temporal_win : 프레임축 Savitzky-Golay 창(홀수, ≤프레임수). 1이면 시간 스무딩 off.
+
+    Returns
+    -------
+    list[dict]  프레임별 {points_cloud(m), Mesh, Color}
+    """
+    reg_csv = require_ref_3d(ref_3d)
+    V_mm, F, V_rest_m = ref_mesh(ref_3d)
+    m2c = {}
+    if mm_per_px is not None:
+        m2c["mm_per_px"] = mm_per_px
+    source_c = mask2contour(mask_label_2d(source), **m2c)
+    dorsal = model_dorsal_curve(V_mm, nb=nctrl)
+    to_model = affine_image_to_model(reg_csv)
+    source_xz = resample_curve(to_model(source_c[:, :2]), nctrl)
+
+    deltas = []
+    for tgt in targets:
+        tc = mask2contour(mask_label_2d(tgt), **m2c)
+        txz = resample_curve(to_model(tc[:, :2]), nctrl)
+        deltas.append(txz - source_xz)
+    delta = np.stack(deltas, axis=0)                        # (T, nctrl, 2)
+
+    if spatial_win > 1 and nctrl >= spatial_win:            # 곡선 따라 (spatial)
+        delta = uniform_filter1d(delta, spatial_win, axis=1, mode="nearest")
+    if temporal_win and temporal_win > 1 and len(delta) >= 3:   # 프레임축 (temporal)
+        from scipy.signal import savgol_filter
+        tw = int(temporal_win)
+        tw = min(tw, len(delta))
+        if tw % 2 == 0:
+            tw -= 1                                         # 홀수 보장
+        if tw >= 3:
+            poly = min(int(temporal_poly), tw - 1)
+            delta = savgol_filter(delta, tw, poly, axis=0, mode="interp")
+
+    Vxz = V_mm[:, [0, 2]]
+    out = []
+    for k in range(len(delta)):
+        rbf = RBFInterpolator(dorsal, delta[k], kernel="gaussian",
+                              epsilon=1.0 / rbf_len, degree=-1, smoothing=1e-3)
+        d_xz = rbf(Vxz)
+        V_def = V_rest_m.copy()
+        V_def[:, 0] += d_xz[:, 0] / 1000.0
+        V_def[:, 2] += d_xz[:, 1] / 1000.0
+        out.append({"points_cloud": V_def, "Mesh": F,
+                    "Color": displacement_colors(V_rest_m, V_def)})
+    return out

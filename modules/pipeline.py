@@ -13,17 +13,18 @@ from modules.utils import (
 )
 from retarget import (
     register, attach_registration, retarget as _retarget,
-    configure as _retarget_configure,
+    retarget_video as _retarget_video, configure as _retarget_configure,
 )
 
 _CFG = None
 _RETARGET = {}
+_TEMPORAL = {"temporal_win": 9, "temporal_poly": 2}
 _REG_CSV = None
 
 
 def configure(cfg):
     """Hydra cfg → artisynth / retarget / render 전역 설정."""
-    global _CFG, _RETARGET, _REG_CSV
+    global _CFG, _RETARGET, _TEMPORAL, _REG_CSV
     _CFG = cfg
     _art_configure(cfg.artisynth)
     rc = cfg.retarget
@@ -33,6 +34,10 @@ def configure(cfg):
         nctrl=rc.retarget.nctrl,
         rbf_len=rc.retarget.rbf_len,
         spatial_win=rc.retarget.spatial_win,
+    )
+    _TEMPORAL = dict(                                  # 폴더(비디오) retarget 시간축 스무딩
+        temporal_win=rc.retarget.get("temporal_win", 9),
+        temporal_poly=rc.retarget.get("temporal_poly", 2),
     )
     import retarget.utils as _ru
     print("retarget: contour mode=%s, n_markers=%d, mm_per_px=%.3f, nctrl=%d"
@@ -102,6 +107,14 @@ def retargeting(src_model, ref, target):
     target이 폴더면 ``mask_*.mat`` 전체를 retarget → ``list[TongueModel]`` 반환.
     """
     if isinstance(target, str) and os.path.isdir(target):
-        return [_retarget_one(src_model, ref, frame)
-                for frame in load_video(target)]
+        frames = list(load_video(target))               # (T,H,W,C)
+        ref_mask = _as_mask(ref)
+        if not getattr(src_model, "registration_csv", None):   # registration 1회
+            register(ref_mask, src_model, _REG_CSV, mm_per_px=_RETARGET["mm_per_px"])
+            attach_registration(src_model, _REG_CSV)
+        else:
+            attach_registration(src_model, src_model.registration_csv)
+        results = _retarget_video(src_model, ref_mask, frames,
+                                  **_RETARGET, **_TEMPORAL)   # 시간축 스무딩 포함
+        return [_to_tongue_model(src_model, r) for r in results]
     return _retarget_one(src_model, ref, target)

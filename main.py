@@ -69,9 +69,12 @@ def main(cfg: DictConfig):
             # 비교용: MRI 마스크(2D)
             tmasks = [mask_label_2d(mk)
                       for mk in load_video(os.path.join(root, cfg.paths.target_mask))]
-            gc = build_compare_gif(tmasks, frames,
-                                   os.path.join(outdir, "compare.gif"), fps=slow)
             reg_csv = getattr(frames[0], "registration_csv", None)
+            gc = build_compare_gif(tmasks, frames,
+                                   os.path.join(outdir, "compare.gif"),
+                                   reg_csv=reg_csv, rest_verts=model.verts,
+                                   png_paths=png_paths,
+                                   mm_per_px=cfg.retarget.mm_per_px, fps=slow)
             go = build_overlay_gif(tmasks, frames, reg_csv,
                                    os.path.join(outdir, "overlay.gif"),
                                    mm_per_px=cfg.retarget.mm_per_px, fps=slow,

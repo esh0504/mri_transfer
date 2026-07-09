@@ -11,7 +11,7 @@
 """
 from .retarget import (
     mask2contour, dorsal_contours_video, register, attach_registration,
-    lift, lift_frame, lift_masks, width_profile, retarget,
+    lift, lift_frame, lift_masks, width_profile, retarget, retarget_video,
     hybrid_landmarks, hybrid_landmarks_video,
 )
 from .utils import configure
@@ -21,6 +21,6 @@ __all__ = [
     "hybrid_landmarks", "hybrid_landmarks_video",
     "register", "attach_registration",
     "lift", "lift_frame", "lift_masks", "width_profile",
-    "retarget",
+    "retarget", "retarget_video",
     "configure",
 ]
