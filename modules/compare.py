@@ -78,9 +78,9 @@ def build_compare_gif(target_masks2d, deformed_models, out_path, reg_csv=None,
         # panel 1 — prev_work midsag (model 좌표계 x-z)
         a1 = fig.add_subplot(1, 4, 2)
         if midr is not None:
-            a1.scatter(midr[:, 0], midr[:, 2], s=5, c="0.8")
+            a1.scatter(midr[:, 0], midr[:, 2], s=5, c="0.8", label="model midsag (rest)")
         dor = model_dorsal_curve(Vd * 1000.0, nctrl, order=order)  # [x, z]
-        a1.plot(dor[:, 0], dor[:, 1], "b-o", ms=2, lw=1.3, label="model dorsum")
+        a1.plot(dor[:, 0], dor[:, 1], "b-o", ms=2, lw=1.3, label="model dorsum (retargeted)")
         if to_model is not None:
             try:
                 cm = to_model(mask2contour(mk)[:, :2])
@@ -91,8 +91,7 @@ def build_compare_gif(target_masks2d, deformed_models, out_path, reg_csv=None,
         a1.set_xlim(xmm); a1.set_ylim(zmm)
         a1.set_xticks([]); a1.set_yticks([])
         a1.set_title("prev_work (midsag)", fontsize=9)
-        if i == 0:
-            a1.legend(fontsize=6, loc="lower left")
+        a1.legend(fontsize=6, loc="lower left")          # 매 프레임 범례 표시
         # panel 2 — 현재 rendering (pyrender PNG). 없으면(headless) 안내 문구.
         png = png_paths[i] if (png_paths and i < len(png_paths)) else None
         a2 = fig.add_subplot(1, 4, 3)
