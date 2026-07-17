@@ -3,10 +3,10 @@
 
 artisynth_home: '/opt/artisynth/artisynth_core'
 tongue_model: artisynth.models.tongue3d.HexTongueDemo
-settle_t: 0.4              # hold 구간 시간(초)
+settle_t: 0.15              # hold 구간 시간(초)
 maxstep: 0.0005           # FEM 적분 스텝(초)
 ramp_step_t: 0.01         # ramp 각 단계당 시뮬 시간(초)
-nramp: 20                 # 활성도 램프 단계 수
+nramp: 100                 # 활성도 램프 단계 수
 nramp_retry_start: 50     # 실패 시 재시도 시작 NRAMP
 nramp_retry_max: 500      # 재시도 최대 NRAMP
 incomp: AUTO              # 비압축성: OFF | AUTO | ELEMENT | NODAL
@@ -16,13 +16,13 @@ jvm_xmx: 4g               # JVM 힙
 # 기본 11D 근육 활성값 0..1 (fem stage 입력)
 # CLI 오버라이드: python main.py artisynth.activations.GGP=0.3 artisynth.activations.HG=0.2
 activations:
-  GGP: 0.0
+  GGP: 1.0
   GGM: 0.0
   GGA: 0.0
   STY: 0.0
   GH: 0.0
   MH: 0.0
-  HG: 0.15
+  HG: 0.0
   VERT: 0.0
   TRANS: 0.0
   IL: 0.0

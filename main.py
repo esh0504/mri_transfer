@@ -90,6 +90,7 @@ def main(cfg: DictConfig):
         visualization(model, os.path.join(outdir, "rest.png"))
         model = fem(model, activations)
         visualization(model, os.path.join(outdir, "fem.png"))
+        print(f"FEM saved to {os.path.join(outdir, 'fem.png')}")
 
 
 if __name__ == "__main__":
